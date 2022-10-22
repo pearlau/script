@@ -7,3 +7,4 @@ wget -O v2rayinstall.sh https://raw.githubusercontent.com/pearlau/script/main/v2
 chmod +x v2rayinstall.sh
 ./v2rayinstall.sh
 ```
+## 本脚本目前有vultr上测试通过，有问题请Issuse
