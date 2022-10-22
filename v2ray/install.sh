@@ -36,52 +36,42 @@ Grpc_UUID1="$(cat /proc/sys/kernel/random/uuid)"
 Grpc_UUID2="$(cat /proc/sys/kernel/random/uuid)"
 Grpc_UUID3="$(cat /proc/sys/kernel/random/uuid)"
 
-v2fly_service() {
-tee /etc/systemd/system/v2ray@.service > /dev/null <<EOF
-[Unit]
-Description=V2Ray Service
-Documentation=https://www.v2fly.org/
-After=network.target nss-lookup.target
+function V2ray_install() {
+install_check
 
-[Service]
-User=nobody
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-NoNewPrivileges=true
-ExecStart=/usr/local/bin/v2ray run -config /opt/v2ray/%i.json
-Restart=on-failure
-RestartPreventExitStatus=23
+if [[ -e /etc/debian_version ]]; then
+    apt-get update -y
+    apt-get -y install binutils curl ufw unzip wget git
+    ufw allow ssh
+    ufw allow http
+    ufw allow https
+    ufw default deny incoming
+    ufw default allow outgoing
+    echo "y" | ufw enable
+    ufw logging off
+    ufw reload
+else
+    red "⚠️ 非debian系统无法运行"
+    exit 0
+fi
+# Find out if the machine uses nogroup or nobody for the permissionless group
+if grep -qs "^caddy:" /etc/passwd; then
+    red "⚠️ caddy用户已存在"
+else
+    useradd -rms /sbin/nologin caddy
+fi
 
-[Install]
-WantedBy=multi-user.target
-EOF
-}
+cd `mktemp -d`
+wget -O v2ray.zip https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip
+unzip -d v2ray v2ray.zip
+mv v2ray/v2ray /usr/local/bin/v2ray
+rm -rf v2ray/ v2ray.zip
+if [[ ! -d /opt/v2ray ]]; then
+    mkdir -p "/opt/v2ray"
+fi
 
-caddy_service() {
-echo '[Unit]
-Description=Caddy
-Documentation=https://caddyserver.com/docs/
-After=network.target network-online.target
-Requires=network-online.target
+blue "生成v2ray trojan配置"
 
-[Service]
-Type=notify
-User=caddy
-Group=caddy
-ExecStart=/usr/local/bin/caddy run --environ --config /opt/caddy/Caddyfile
-ExecReload=/usr/local/bin/caddy reload --config /opt/caddy/Caddyfile --force
-TimeoutStopSec=5s
-LimitNOFILE=1048576
-LimitNPROC=512
-PrivateTmp=true
-ProtectSystem=full
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-
-[Install]
-WantedBy=multi-user.target' > /etc/systemd/system/caddy.service
-}
-
-v2fly_config() {
 tee /opt/v2ray/trojan.json > /dev/null <<EOF
 {
   "log": {"loglevel": "none"},
@@ -141,9 +131,42 @@ tee /opt/v2ray/trojan.json > /dev/null <<EOF
   }
 }
 EOF
-}
 
-caddyfile_config() {
+blue "配置V2ray开机启动脚本"
+
+tee /etc/systemd/system/v2ray@.service > /dev/null <<EOF
+[Unit]
+Description=V2Ray Service
+Documentation=https://www.v2fly.org/
+After=network.target nss-lookup.target
+
+[Service]
+User=nobody
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/v2ray run -config /opt/v2ray/%i.json
+Restart=on-failure
+RestartPreventExitStatus=23
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+blue "安装caddy server"
+
+latest_version="$(curl -s "https://api.github.com/repos/caddyserver/caddy/releases/latest" | grep 'tag_name' | cut -d '"' -f 4 | tr -d 'v')"
+caddydownload="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${latest_version}_linux_amd64.tar.gz"
+cd `mktemp -d`
+wget -nv "${caddydownload}" -O caddy.tar.gz
+tar xf caddy.tar.gz && rm -rf caddy.tar.gz
+mv caddy /usr/local/bin/caddy
+if [[ ! -d /opt/caddy ]]; then
+    mkdir -p "/opt/caddy"
+fi
+
+blue "配置Caddyfile"
+
 tee /opt/caddy/Caddyfile > /dev/null <<EOF
 {
   order reverse_proxy before map
@@ -195,112 +218,42 @@ tee /opt/caddy/Caddyfile > /dev/null <<EOF
   }
 }
 EOF
-}
 
-function v2fly_installs() {
-cd `mktemp -d`
-wget -O v2ray.zip https://github.com/v2fly/v2ray-core/releases/latest/download/v2ray-linux-64.zip
-unzip -d v2ray v2ray.zip
-mv v2ray/v2ray /usr/local/bin/v2ray
-rm -rf v2ray/ v2ray.zip
-mkdir -p "/opt/v2ray"
-}
+blue "配置Caddy开机启动脚本"
 
-function caddy_installs() {
-latest_version="$(curl -s "https://api.github.com/repos/caddyserver/caddy/releases/latest" | grep 'tag_name' | cut -d '"' -f 4 | tr -d 'v')"
-caddydownload="https://github.com/caddyserver/caddy/releases/latest/download/caddy_${latest_version}_linux_amd64.tar.gz"
-cd `mktemp -d`
-wget -nv "${caddydownload}" -O caddy.tar.gz
-tar xf caddy.tar.gz && rm -rf caddy.tar.gz
-mv caddy /usr/local/bin/caddy
-mkdir -p "/opt/caddy"
-}
+echo '[Unit]
+Description=Caddy
+Documentation=https://caddyserver.com/docs/
+After=network.target network-online.target
+Requires=network-online.target
 
-function install_check() {
-initialCheck
-until [[ $Caddy_nameserver =~ ^[a-zA-Z0-9.-]+$ ]]; do
-    read -rp "请输入你的域名: " -e Caddy_nameserver
-done
-until [[ $GrpcServerName_PATH =~ ^[a-zA-Z0-9.-]+$ ]]; do
-    read -rp "请输入Grpc ServerName: " -e GrpcServerName_PATH
-done
-until [[ $V2ray_PORT =~ ^[0-9]+$ ]] && [ "$V2ray_PORT" -ge 1025 ] && [ "$V2ray_PORT" -le 65535 ]; do
-    read -rp "请输入v2ray内部端口，不小于1025 [1025-65535]: " -e V2ray_PORT
-done
-}
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+ExecStart=/usr/local/bin/caddy run --environ --config /opt/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /opt/caddy/Caddyfile --force
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+LimitNPROC=512
+PrivateTmp=true
+ProtectSystem=full
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
-function V2ray_install() {
-install_check
+[Install]
+WantedBy=multi-user.target' > /etc/systemd/system/caddy.service
 
-if [[ -e /etc/debian_version ]]; then
-    apt-get update -y
-    apt-get -y install binutils curl ufw unzip wget git
-    ufw allow ssh
-    ufw allow http
-    ufw allow https
-    ufw default deny incoming
-    ufw default allow outgoing
-    echo "y" | ufw enable
-    ufw logging off
-    ufw reload
+systemctl daemon-reload
+if [[ ! -L /etc/systemd/system/multi-user.target.wants/caddy.service ]]; then
+    systemctl enable --now caddy
 else
-    red "非debian系统无法运行"
-    exit 0
-fi
-# Find out if the machine uses nogroup or nobody for the permissionless group
-if grep -qs "^caddy:" /etc/passwd; then
-    blue "caddy用户已存在"
-else
-    useradd -rms /sbin/nologin caddy
+    systemctl restart caddy
 fi
 
-# caddyserver
-if [[ ! -x /usr/local/bin/caddy ]]; then
-    caddy_installs
+if [[ ! -L /etc/systemd/system/multi-user.target.wants/v2ray@trojan.service ]]; then
+    systemctl enable --now v2ray@trojan
 else
-    rm -f /usr/local/bin/caddy
-    caddy_installs
-fi
-
-# caddyservice
-if [[ ! -e /etc/systemd/system/caddy.service ]]; then
-    caddy_service
-else
-    rm -f /etc/systemd/system/caddy.service
-    caddy_service
-fi
-
-# caddyfile
-if [[ ! -e /opt/caddy/Caddyfile ]]; then
-    caddyfile_config
-else
-    rm -f /opt/caddy/Caddyfile
-    caddyfile_config
-fi
-
-
-# v2fly
-if [[ ! -x /usr/local/bin/v2ray ]]; then
-    v2fly_installs
-else
-    rm -f /usr/local/bin/v2ray
-    v2fly_installs
-fi
-
-# v2rayservice
-if [[ ! -e /etc/systemd/system/v2ray@.service ]]; then
-    v2fly_service
-else
-    rm -f /etc/systemd/system/v2ray@.service
-    v2fly_service
-fi
-
-# v2rayjson
-if [[ ! -e /opt/v2ray/trojan.json ]]; then
-    v2fly_config
-else
-    rm -f /opt/v2ray/trojan.json
-    v2fly_config
+    systemctl restart v2ray@trojan
 fi
 
 tee /opt/v2ray/done.txt <<EOF
@@ -332,22 +285,22 @@ SNI：$Caddy_nameserver
 
 ------------------------------------------
 EOF
-
-systemctl daemon-reload
-if [[ ! -L /etc/systemd/system/multi-user.target.wants/caddy.service ]]; then
-    systemctl enable --now caddy
-else
-    systemctl restart caddy
-fi
-
-if [[ ! -L /etc/systemd/system/multi-user.target.wants/v2ray@trojan.service ]]; then
-    systemctl enable --now v2ray@trojan
-else
-    systemctl restart v2ray@trojan
-fi
 }
 
-settings_info() {
+function install_check() {
+initialCheck
+until [[ $Caddy_nameserver =~ ^[a-zA-Z0-9.-]+$ ]]; do
+    read -rp "请输入你的域名: " -e Caddy_nameserver
+done
+until [[ $GrpcServerName_PATH =~ ^[a-zA-Z0-9.-]+$ ]]; do
+    read -rp "请输入Grpc ServerName: " -e GrpcServerName_PATH
+done
+until [[ $V2ray_PORT =~ ^[0-9]+$ ]] && [ "$V2ray_PORT" -ge 1025 ] && [ "$V2ray_PORT" -le 65535 ]; do
+    read -rp "请输入v2ray内部端口，不小于1025 [1025-65535]: " -e V2ray_PORT
+done
+}
+
+function settings_info() {
 if [[ ! -e /opt/v2ray/done.txt ]]; then
     echo "配置未生成，请重新运行脚本"
 else
@@ -357,7 +310,7 @@ fi
 
 function Web_install() {
 rm -rf /opt/caddy/html
-mkdir -p "/opt/caddy/html"
+mkdir -p /opt/caddy/html
 git clone https://github.com/HFIProgramming/mikutap.git /opt/caddy/html
 chown -R caddy. /opt/caddy/html
 }
@@ -392,8 +345,8 @@ Install_Menu() {
         ;;
     *)
         clear
-        red "请输入正确数字，返回中......"
-        sleep 2s
+        red "请输入正确数字"
+        sleep 4s
         Install_Menu
         ;;
     esac
