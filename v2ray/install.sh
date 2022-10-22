@@ -213,6 +213,7 @@ cd `mktemp -d`
 wget -nv "${caddydownload}" -O caddy.tar.gz
 tar xf caddy.tar.gz && rm -rf caddy.tar.gz
 mv caddy /usr/local/bin/caddy
+mkdir -p /opt/caddy
 }
 
 function install_check() {
