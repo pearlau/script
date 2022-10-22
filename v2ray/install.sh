@@ -224,7 +224,7 @@ until [[ $GrpcServerName_PATH =~ ^[a-zA-Z0-9.-]+$ ]]; do
     read -rp "请输入Grpc ServerName: " -e GrpcServerName_PATH
 done
 until [[ $V2ray_PORT =~ ^[0-9]+$ ]] && [ "$V2ray_PORT" -ge 1025 ] && [ "$V2ray_PORT" -le 65535 ]; do
-    read -rp "请输入v2ray内部端口 [1025-65535]: " -e V2ray_PORT
+    read -rp "请输入v2ray内部端口，不小于1025 [1025-65535]: " -e V2ray_PORT
 done
 }
 
