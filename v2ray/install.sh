@@ -203,7 +203,7 @@ wget -O v2ray.zip https://github.com/v2fly/v2ray-core/releases/latest/download/v
 unzip -d v2ray v2ray.zip
 mv v2ray/v2ray /usr/local/bin/v2ray
 rm -rf v2ray/ v2ray.zip
-mkdir -p /opt/v2ray
+mkdir -p "/opt/v2ray"
 }
 
 function caddy_installs() {
@@ -213,7 +213,7 @@ cd `mktemp -d`
 wget -nv "${caddydownload}" -O caddy.tar.gz
 tar xf caddy.tar.gz && rm -rf caddy.tar.gz
 mv caddy /usr/local/bin/caddy
-mkdir -p /opt/caddy
+mkdir -p "/opt/caddy"
 }
 
 function install_check() {
