@@ -357,7 +357,7 @@ fi
 
 function Web_install() {
 rm -rf /opt/caddy/html
-mkdir -p /opt/caddy/html
+mkdir -p "/opt/caddy/html"
 git clone https://github.com/HFIProgramming/mikutap.git /opt/caddy/html
 chown -R caddy. /opt/caddy/html
 }
