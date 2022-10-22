@@ -392,8 +392,8 @@ Install_Menu() {
         ;;
     *)
         clear
-        red "请输入正确数字"
-        sleep 4s
+        red "请输入正确数字，返回中......"
+        sleep 2s
         Install_Menu
         ;;
     esac
