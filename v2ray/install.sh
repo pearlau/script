@@ -346,7 +346,7 @@ Install_Menu() {
     *)
         clear
         red "请输入正确数字"
-        sleep 4s
+        sleep 2s
         Install_Menu
         ;;
     esac
