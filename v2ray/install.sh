@@ -282,9 +282,21 @@ SNI：$Caddy_nameserver
 
 如需默认伪装网站，请重新运行脚本
 
-
+在使用之前最好重启一次系统：systemctl reboot
 ------------------------------------------
 EOF
+bbr_status_info
+}
+
+bbr_status_info() {
+    local bbrparam=$(lsmod | grep bbr | awk '{print $1}')
+    if [[ x"${bbrparam}" == x"tcp_bbr" ]]; then
+        echo "BBR已开启"
+    else
+        echo "net.core.default_qdisc = fq" >> /etc/sysctl.conf
+        echo "net.ipv4.tcp_congestion_control = bbr" >> /etc/sysctl.conf
+        sysctl -p >/dev/null 2>&1
+    fi
 }
 
 function install_check() {
