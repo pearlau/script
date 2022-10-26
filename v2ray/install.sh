@@ -288,7 +288,7 @@ EOF
 bbr_status_info
 }
 
-bbr_status_info() {
+function bbr_status_info() {
     local bbrparam=$(lsmod | grep bbr | awk '{print $1}')
     if [[ x"${bbrparam}" == x"tcp_bbr" ]]; then
         echo "BBR已开启"
