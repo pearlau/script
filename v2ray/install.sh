@@ -262,6 +262,7 @@ tee /opt/v2ray/done.txt <<EOF
 请使用最新版本V2rayN客户端，新建trojan配置
 
 您的域名是: $Caddy_nameserver
+Core类型： v2fly_v5
 
 端口：443
 
@@ -324,7 +325,7 @@ function Web_install() {
 rm -rf /opt/caddy/html
 mkdir -p /opt/caddy/html
 git clone https://github.com/HFIProgramming/mikutap.git /opt/caddy/html
-chown -R caddy. /opt/caddy/html
+chown -R caddy:caddy /opt/caddy/html
 }
 
 Install_Menu() {
