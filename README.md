@@ -6,7 +6,7 @@
 **请使用root登陆，请使用root登陆，请使用root登陆**！  
 
 ## 如果无法root登陆，就使用`sudo -i`命令  
-命令：
+复制粘贴以下命令：
 ```
 wget -O v2rayinstall.sh https://raw.githubusercontent.com/pearlau/script/main/v2ray/install.sh
 chmod +x v2rayinstall.sh
