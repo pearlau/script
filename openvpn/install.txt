@@ -1,1 +1,1 @@
-openvpn-auth-ladp
+debian12:openvpn-auth-ladp
